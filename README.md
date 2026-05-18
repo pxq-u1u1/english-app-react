@@ -1,26 +1,23 @@
 # 英语表达练习
 
-一个帮助提升英语表达能力的全栈前端工具，支持中英双向翻译、英文日记写作与 AI 批改、语料库积累。
+一个帮助提升英语表达能力的纯前端工具，支持中英双向翻译、英文日记写作与 AI 批改、语料库积累。
+
+**在线体验：https://pxq-u1u1.github.io/english-app-react/**
 
 ## 功能
 
-- **中→英 / 英→中 双向翻译** — 输入文本一键翻译，历史记录可搜索、可导出
-- **英文日记** — 每天写英文日记，AI 批改语法和表达，让写作更地道
-- **语料库** — 收藏好句子，AI 自动分类（职场/日常/社交等），积累地道表达
-- **导出 PDF / Word** — 所有内容支持导出
-- **纯前端** — 数据存浏览器 localStorage，API Key 也只存本地
+- **中→英 / 英→中 双向翻译** — DeepSeek AI 翻译，历史记录可搜索、多选、导出
+- **英文日记** — 每天写英文日记，AI 一键批改语法和表达，让写作更地道
+- **语料库** — 收藏好句子，AI 自动分类（职场/日常/社交等），一键翻译中文释义
+- **导出 PDF / Word** — 翻译记录、日记、语料库均支持导出
+- **纯前端** — 数据存浏览器 localStorage，API Key 也只存本地，无需后端
 
 ## 快速开始
 
 ```bash
-# 1. 克隆
 git clone https://github.com/pxq-u1u1/english-app-react.git
 cd english-app-react
-
-# 2. 安装依赖
 npm install
-
-# 3. 启动
 npm run dev
 ```
 
@@ -39,7 +36,7 @@ Key 存在你浏览器的 localStorage 中，不会上传到任何服务器。
 - React 18 + Vite 6
 - DeepSeek API（翻译、批改、分类）
 - localStorage 数据持久化
-- 纯前端，零后端
+- GitHub Pages 部署
 
 ## 项目结构
 
@@ -62,11 +59,10 @@ src/
     └── helpers.js               # 工具函数 + 导出
 ```
 
-## 部署
+## 本地开发
 
 ```bash
-npm run build     # 产出 dist/ 目录
-npm run preview   # 预览构建产物
+npm run dev       # 启动开发服务器
+npm run build     # 构建生产版本
+npm run deploy    # 部署到 GitHub Pages
 ```
-
-将 `dist/` 部署到任意静态托管服务（Vercel、GitHub Pages 等）即可。
