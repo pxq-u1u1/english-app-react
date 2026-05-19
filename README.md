@@ -45,7 +45,7 @@
 | AI | DeepSeek API | 翻译、批改、分类，Key 存服务器 |
 | 本地缓存 | localStorage | 服务器不可用时自动降级 |
 
-后端代码仓库：[english-app-backend](../english-app-backend/)
+后端代码仓库：[english-app-backend](https://github.com/pxq-u1u1/english-app-backend)
 
 ## 快速开始
 
@@ -67,7 +67,7 @@ npm run dev
 
 ### 多设备同步
 
-1. 部署后端 → [部署指南](../english-app-backend/部署指南.md)
+1. 部署后端 → [部署指南](https://github.com/pxq-u1u1/english-app-backend/blob/master/%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97.md)
 2. ⚙ 设置 → 填服务器地址 + 密码 → 保存 → 同步
 3. 所有设备打开同一网址，数据实时互通
 
