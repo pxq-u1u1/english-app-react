@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { loadDiaries, saveDiaries } from '../utils/storage'
-import { callDeepSeek } from '../utils/deepseek'
+import { fetchDiaries, saveDiaryRecord, deleteDiaryRecord, clearAllDiaries, polishAI } from '../utils/api'
 import { formatDiaryDate, getTodayStr, escHtml, exportPDF, exportWord } from '../utils/helpers'
 import { showToast } from './Toast'
 import Pagination from './Pagination'
@@ -8,7 +7,7 @@ import Pagination from './Pagination'
 const PAGE_SIZE = 15
 
 export default function DiaryTab() {
-  const [diaries, setDiaries] = useState(loadDiaries)
+  const [diaries, setDiaries] = useState([])
   const [date, setDate] = useState(getTodayStr)
   const [content, setContent] = useState('')
   const [currentId, setCurrentId] = useState(null)
@@ -18,7 +17,7 @@ export default function DiaryTab() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
-  useEffect(() => { saveDiaries(diaries) }, [diaries])
+  useEffect(() => { fetchDiaries().then(setDiaries) }, [])
 
   const wordCount = content.trim() ? content.trim().split(/\s+/).filter(w => w.length > 0).length : 0
   const charCount = content.replace(/\s/g, '').length
@@ -34,17 +33,20 @@ export default function DiaryTab() {
 
   const goToday = () => setDate(getTodayStr())
 
-  const save = () => {
+  const save = async () => {
     if (!content.trim()) { showToast('请先写点内容'); return }
     const now = new Date().toISOString()
+    let d
     if (currentId) {
-      setDiaries(diaries.map(d => d.id === currentId ? { ...d, content, updatedAt: now } : d))
+      d = { id: currentId, date, content, createdAt: diaries.find(x => x.id === currentId)?.createdAt || now, updatedAt: now }
+      setDiaries(diaries.map(x => x.id === currentId ? d : x))
     } else {
       const newId = Date.now().toString()
+      d = { id: newId, date, content, createdAt: now, updatedAt: now }
       setCurrentId(newId)
-      const entry = { id: newId, date, content, createdAt: now, updatedAt: now }
-      setDiaries([entry, ...diaries].sort((a, b) => b.date.localeCompare(a.date)))
+      setDiaries([d, ...diaries].sort((a, b) => b.date.localeCompare(a.date)))
     }
+    await saveDiaryRecord(d)
     showToast('日记已保存')
   }
 
@@ -52,10 +54,7 @@ export default function DiaryTab() {
     if (!content.trim()) { showToast('请先写点内容再批改'); return }
     setPolishing(true)
     try {
-      const result = await callDeepSeek(
-        'You are a native English editor helping a learner improve their diary writing. Correct all grammar mistakes, improve word choices to sound more natural and native-like, and polish sentence flow. Preserve the original meaning, tone, and personal voice. Output ONLY the corrected version, no explanations.',
-        content
-      )
+      const result = await polishAI(content)
       setPolishText(result)
       setShowPolish(true)
     } catch (e) { showToast('批改失败: ' + e.message) }
@@ -69,14 +68,16 @@ export default function DiaryTab() {
     showToast('已应用批改结果，记得保存')
   }
 
-  const deleteDiary = (id) => {
+  const deleteDiary = async (id) => {
     if (!confirm('确定删除这篇日记？')) return
+    await deleteDiaryRecord(id)
     setDiaries(diaries.filter(d => d.id !== id))
     if (currentId === id) { setCurrentId(null); setContent('') }
   }
 
-  const clearAll = () => {
+  const clearAll = async () => {
     if (!confirm('确定清空所有日记？')) return
+    await clearAllDiaries()
     setDiaries([]); setCurrentId(null); setContent('')
   }
 
@@ -99,7 +100,6 @@ export default function DiaryTab() {
     }
   }
 
-  // Filter & paginate
   const filtered = search ? diaries.filter(d => d.content.toLowerCase().includes(search.toLowerCase())) : diaries
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
   const p = page > totalPages ? 1 : page

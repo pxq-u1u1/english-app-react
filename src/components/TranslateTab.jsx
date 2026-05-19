@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { loadRecords, saveRecords } from '../utils/storage'
-import { callDeepSeek } from '../utils/deepseek'
+import { fetchRecords, addRecordRecord, deleteRecordRecord, clearAllRecords, translateAI } from '../utils/api'
 import { formatTime, escHtml, exportPDF, exportWord } from '../utils/helpers'
 import { showToast } from './Toast'
 import Pagination from './Pagination'
@@ -8,7 +7,7 @@ import Pagination from './Pagination'
 const PAGE_SIZE = 15
 
 export default function TranslateTab() {
-  const [records, setRecords] = useState(loadRecords)
+  const [records, setRecords] = useState([])
   const [direction, setDirection] = useState('zh2en')
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
@@ -17,27 +16,26 @@ export default function TranslateTab() {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(new Set())
 
-  useEffect(() => { saveRecords(records) }, [records])
+  // 初始加载 + 切标签时刷新
+  useEffect(() => { fetchRecords().then(setRecords) }, [])
 
   const doTranslate = async () => {
     if (!input.trim()) { showToast(direction === 'zh2en' ? '请先输入中文' : 'Please enter English text'); return }
     setTranslating(true)
     try {
-      const sys = direction === 'zh2en'
-        ? 'You are a professional translator. Translate the Chinese text into natural, idiomatic English. Keep the tone and style of the original. Only output the translation, nothing else.'
-        : 'You are a professional translator. Translate the English text into natural, fluent Chinese. Keep the tone and style of the original. Only output the translation, nothing else.'
-      const result = await callDeepSeek(sys, input)
+      const result = await translateAI(input, direction)
       setOutput(result)
     } catch (e) { showToast('翻译失败: ' + e.message) }
     setTranslating(false)
   }
 
-  const save = () => {
+  const save = async () => {
     if (!input.trim()) { showToast(direction === 'zh2en' ? '请先输入中文' : 'Please enter English text'); return }
     if (!output.trim()) { showToast(direction === 'zh2en' ? '请先翻译成英文' : '请先翻译成中文'); return }
     const r = { id: Date.now().toString(), direction, createdAt: new Date().toISOString() }
     if (direction === 'zh2en') { r.chinese = input; r.english = output }
     else { r.english = input; r.chinese = output }
+    await addRecordRecord(r)
     setRecords([r, ...records])
     setInput(''); setOutput(''); setPage(1)
     showToast('已保存')
@@ -48,14 +46,16 @@ export default function TranslateTab() {
     navigator.clipboard.writeText(output).then(() => showToast('已复制'))
   }
 
-  const deleteRecord = (id) => {
+  const deleteRecord = async (id) => {
     if (!confirm('确定删除这条记录？')) return
+    await deleteRecordRecord(id)
     setRecords(records.filter(r => r.id !== id))
     const s = new Set(selected); s.delete(id); setSelected(s)
   }
 
-  const clearAll = () => {
+  const clearAll = async () => {
     if (!confirm('确定清空所有翻译记录？')) return
+    await clearAllRecords()
     setRecords([]); setSelected(new Set())
   }
 
@@ -89,7 +89,6 @@ ${items.map(r => `<tr><td class="zh">${escHtml(r.chinese||'')}</td><td class="en
     exportWord('英语翻译', html); setSelected(new Set()); showToast('Word 文件已下载')
   }
 
-  // Filter & paginate
   const filtered = search ? records.filter(r =>
     (r.chinese||'').toLowerCase().includes(search.toLowerCase()) ||
     (r.english||'').toLowerCase().includes(search.toLowerCase())
@@ -108,12 +107,8 @@ ${items.map(r => `<tr><td class="zh">${escHtml(r.chinese||'')}</td><td class="en
 
         <div>
           <label>{direction === 'zh2en' ? '中文原文' : 'English'}</label>
-          <textarea
-            style={{ minHeight: 200 }}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={direction === 'zh2en' ? '输入你想表达但卡壳的中文句子...' : 'Paste English text you want to translate...'}
-          />
+          <textarea style={{ minHeight: 200 }} value={input} onChange={e => setInput(e.target.value)}
+            placeholder={direction === 'zh2en' ? '输入你想表达但卡壳的中文句子...' : 'Paste English text you want to translate...'} />
         </div>
 
         <button className="btn btn-primary" disabled={translating} onClick={doTranslate}>

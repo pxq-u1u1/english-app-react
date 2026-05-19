@@ -215,9 +215,18 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .header { padding: 10px 14px; gap: 8px; flex-wrap: wrap; }
+  .header h1 { font-size: 15px; }
+  .tab-btn { padding: 5px 10px; font-size: 12px; }
   .main { flex-direction: column; height: auto; }
-  .panel-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
-  .panel-right { min-height: 50vh; }
+  .panel-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 16px; }
+  .panel-right { min-height: 50vh; padding: 16px; }
+  .btn { padding: 10px 16px; font-size: 14px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .record-item { padding: 14px 12px; }
+  textarea { font-size: 16px !important; } /* Prevent iOS zoom on focus */
+  .direction-toggle { flex-wrap: nowrap; }
+  .corpus-input-row { flex-direction: column; }
 }
 
 /* Print */

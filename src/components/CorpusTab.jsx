@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { loadCorpus, saveCorpus, loadCategories, saveCategories } from '../utils/storage'
-import { callDeepSeek } from '../utils/deepseek'
+import { fetchCorpus, addCorpusRecord, deleteCorpusRecord, clearAllCorpus, fetchCategories, saveCategoriesRecord, corpusTranslateAI, categorizeAI } from '../utils/api'
 import { escHtml, exportPDF, exportWord } from '../utils/helpers'
 import { showToast } from './Toast'
 import Pagination from './Pagination'
@@ -8,11 +7,11 @@ import Pagination from './Pagination'
 const PAGE_SIZE = 15
 
 export default function CorpusTab() {
-  const [corpus, setCorpus] = useState(loadCorpus)
-  const [categories, setCategories] = useState(loadCategories)
+  const [corpus, setCorpus] = useState([])
+  const [categories, setCategories] = useState([])
   const [english, setEnglish] = useState('')
   const [chinese, setChinese] = useState('')
-  const [category, setCategory] = useState(categories[0])
+  const [category, setCategory] = useState('')
   const [source, setSource] = useState('')
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState('全部')
@@ -23,17 +22,14 @@ export default function CorpusTab() {
   const [categorizing, setCategorizing] = useState(false)
   const catSelRef = useRef(null)
 
-  useEffect(() => { saveCorpus(corpus) }, [corpus])
-  useEffect(() => { saveCategories(categories); if (catSelRef.current && categories.length) setCategory(categories[0]) }, [categories])
+  useEffect(() => { fetchCorpus().then(setCorpus) }, [])
+  useEffect(() => { fetchCategories().then(setCategories) }, [])
 
   const translateCorpus = async () => {
     if (!english.trim()) { showToast('请先输入英语表达'); return }
     setTranslatingCorpus(true)
     try {
-      const result = await callDeepSeek(
-        'Translate the following English sentence into natural, fluent Chinese. Only output the Chinese translation, nothing else.',
-        english
-      )
+      const result = await corpusTranslateAI(english)
       setChinese(result.trim())
     } catch (e) { showToast('翻译失败: ' + e.message) }
     setTranslatingCorpus(false)
@@ -43,11 +39,7 @@ export default function CorpusTab() {
     if (!english.trim()) { showToast('请先输入英语表达'); return }
     setCategorizing(true)
     try {
-      const cats = categories.join('、')
-      const result = await callDeepSeek(
-        `You are a text classifier. Given an English sentence, choose the SINGLE best category from this list: ${cats}. Only output the exact category name, nothing else.`,
-        english
-      )
+      const result = await categorizeAI(english, categories)
       const matched = result.trim()
       const found = categories.find(c => c === matched || matched.includes(c))
       if (found) { setCategory(found); showToast('已分类为: ' + found) }
@@ -56,12 +48,11 @@ export default function CorpusTab() {
     setCategorizing(false)
   }
 
-  const addEntry = () => {
+  const addEntry = async () => {
     if (!english.trim()) { showToast('请输入英语表达'); return }
-    setCorpus([{
-      id: Date.now().toString(), english, chinese, category, source,
-      createdAt: new Date().toISOString()
-    }, ...corpus])
+    const e = { id: Date.now().toString(), english, chinese, category: category || categories[0], source, createdAt: new Date().toISOString() }
+    await addCorpusRecord(e)
+    setCorpus([e, ...corpus])
     setEnglish(''); setChinese(''); setSource(''); setPage(1)
     showToast('已添加到语料库')
   }
@@ -72,39 +63,47 @@ export default function CorpusTab() {
     setEnglish(e.english); setChinese(e.chinese || ''); setCategory(e.category); setSource(e.source || '')
   }
 
-  const deleteEntry = (id) => {
+  const deleteEntry = async (id) => {
     if (!confirm('确定删除这条语料？')) return
+    await deleteCorpusRecord(id)
     setCorpus(corpus.filter(e => e.id !== id))
   }
 
-  const clearAll = () => {
+  const clearAll = async () => {
     if (!confirm('确定清空整个语料库？')) return
+    await clearAllCorpus()
     setCorpus([])
   }
 
-  const addCategory = () => {
+  const addCategory = async () => {
     const name = newCatName.trim()
     if (!name) return
     if (categories.includes(name)) { showToast('该分类已存在'); return }
-    setCategories([...categories, name])
+    const updated = [...categories, name]
+    setCategories(updated)
+    await saveCategoriesRecord(updated)
     setNewCatName('')
     showToast('已添加分类: ' + name)
   }
 
-  const deleteCategory = (name) => {
+  const deleteCategory = async (name) => {
     if (categories.length <= 2) { showToast('至少保留2个分类'); return }
     if (!confirm(`删除分类 "${name}"？已有语料将变为"其他"。`)) return
+    const updated = categories.filter(c => c !== name)
+    setCategories(updated)
+    await saveCategoriesRecord(updated)
     setCorpus(corpus.map(e => e.category === name ? { ...e, category: '其他' } : e))
-    setCategories(categories.filter(c => c !== name))
+    // Update server for reassigned items
+    for (const e of corpus.filter(e => e.category === name)) {
+      await addCorpusRecord({ ...e, category: '其他' })
+    }
     if (activeCat === name) setActiveCat('全部')
   }
 
-  // Category counts
   const counts = {}
   counts['全部'] = corpus.length
   corpus.forEach(e => { counts[e.category] = (counts[e.category] || 0) + 1 })
 
-  // Filter & paginate
   let filtered = activeCat !== '全部' ? corpus.filter(e => e.category === activeCat) : corpus
   if (search) {
     filtered = filtered.filter(e =>
@@ -159,7 +158,7 @@ ${items.map(e => `<tr><td class="en">${escHtml(e.english)}</td><td>${escHtml(e.c
         <div className="corpus-input-row">
           <div className="field" style={{ flex: 1 }}>
             <label>分类</label>
-            <select value={category} onChange={e => setCategory(e.target.value)} ref={catSelRef}>
+            <select value={category || categories[0]} onChange={e => setCategory(e.target.value)} ref={catSelRef}>
               {categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
