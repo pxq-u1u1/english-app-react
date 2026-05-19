@@ -13,6 +13,7 @@ export default function DiaryTab() {
   const [currentId, setCurrentId] = useState(null)
   const [polishing, setPolishing] = useState(false)
   const [polishText, setPolishText] = useState('')
+  const [diffText, setDiffText] = useState('')
   const [showPolish, setShowPolish] = useState(false)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -54,8 +55,9 @@ export default function DiaryTab() {
     if (!content.trim()) { showToast('请先写点内容再批改'); return }
     setPolishing(true)
     try {
-      const result = await polishAI(content)
-      setPolishText(result)
+      const data = await polishAI(content)
+      setPolishText(data.result)
+      setDiffText(data.diff || '')
       setShowPolish(true)
     } catch (e) { showToast('批改失败: ' + e.message) }
     setPolishing(false)
@@ -64,7 +66,7 @@ export default function DiaryTab() {
   const applyPolish = () => {
     if (!polishText.trim()) return
     setContent(polishText)
-    setShowPolish(false); setPolishText('')
+    setShowPolish(false); setPolishText(''); setDiffText('')
     showToast('已应用批改结果，记得保存')
   }
 
@@ -104,6 +106,14 @@ export default function DiaryTab() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
   const p = page > totalPages ? 1 : page
   const pageItems = filtered.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE)
+
+  function renderDiff(text) {
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/ORIGINAL: (.+)/g, '<br><span style="background:#fde2e2;text-decoration:line-through;padding:1px 4px;border-radius:3px;">❌ $1</span>')
+      .replace(/CORRECTED: (.+)/g, ' → <span style="background:#d4edda;padding:1px 4px;border-radius:3px;">✅ $1</span>')
+      .replace(/REASON: (.+)/g, '<br><span style="color:#8c7a6b;font-size:11px;">   💡 $1</span>')
+  }
 
   const doExportPDF = () => {
     if (!diaries.length) { showToast('没有可导出的日记'); return }
@@ -148,9 +158,18 @@ ${diaries.map(d => `<div class="entry"><h2>${formatDiaryDate(d.date)}</h2><p>${e
           <div className="polish-section">
             <label>批改结果（更地道的表达）</label>
             <textarea value={polishText} onChange={e => setPolishText(e.target.value)} />
-            <div className="btn-row">
+
+            {diffText && (
+              <div className="polish-diff">
+                <label style={{ marginTop: 14 }}>修改对照</label>
+                <div style={{ fontSize: 13, lineHeight: 2, whiteSpace: 'pre-wrap' }}
+                  dangerouslySetInnerHTML={{ __html: renderDiff(diffText) }} />
+              </div>
+            )}
+
+            <div className="btn-row" style={{ marginTop: 10 }}>
               <button className="btn btn-green btn-sm" onClick={applyPolish}>应用修改</button>
-              <button className="btn btn-outline btn-sm" onClick={() => { setShowPolish(false); setPolishText('') }}>放弃</button>
+              <button className="btn btn-outline btn-sm" onClick={() => { setShowPolish(false); setPolishText(''); setDiffText('') }}>放弃</button>
             </div>
           </div>
         )}
