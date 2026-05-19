@@ -14,6 +14,7 @@ export default function DiaryTab() {
   const [polishing, setPolishing] = useState(false)
   const [polishText, setPolishText] = useState('')
   const [diffText, setDiffText] = useState('')
+  const [vocabText, setVocabText] = useState('')
   const [showPolish, setShowPolish] = useState(false)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -58,6 +59,7 @@ export default function DiaryTab() {
       const data = await polishAI(content)
       setPolishText(data.result)
       setDiffText(data.diff || '')
+      setVocabText(data.vocab || '')
       setShowPolish(true)
     } catch (e) { showToast('批改失败: ' + e.message) }
     setPolishing(false)
@@ -66,7 +68,7 @@ export default function DiaryTab() {
   const applyPolish = () => {
     if (!polishText.trim()) return
     setContent(polishText)
-    setShowPolish(false); setPolishText(''); setDiffText('')
+    setShowPolish(false); setPolishText(''); setDiffText(''); setVocabText('')
     showToast('已应用批改结果，记得保存')
   }
 
@@ -110,9 +112,17 @@ export default function DiaryTab() {
   function renderDiff(text) {
     return text
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/ORIGINAL: (.+)/g, '<br><span style="background:#fde2e2;text-decoration:line-through;padding:1px 4px;border-radius:3px;">❌ $1</span>')
-      .replace(/CORRECTED: (.+)/g, ' → <span style="background:#d4edda;padding:1px 4px;border-radius:3px;">✅ $1</span>')
-      .replace(/REASON: (.+)/g, '<br><span style="color:#8c7a6b;font-size:11px;">   💡 $1</span>')
+      .replace(/ORIGINAL: (.+)/g, '<br><span style="background:#fda5a5;color:#7f1d1d;text-decoration:line-through;padding:1px 6px;border-radius:3px;font-weight:600;">✗ $1</span>')
+      .replace(/CORRECTED: (.+)/g, '<br><span style="background:#86efac;color:#14532d;padding:1px 6px;border-radius:3px;font-weight:600;margin-left:4px;">✓ $1</span>')
+      .replace(/REASON: (.+)/g, '<br><span style="color:#8c7a6b;font-size:11px;margin-left:8px;">   💡 $1</span>')
+  }
+
+  function renderVocab(text) {
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/WORD: (.+)/g, '<div style="margin-top:14px;font-weight:600;color:#b91c1c;">📝 原词：$1</div>')
+      .replace(/UPGRADED TO: (.+)/g, '<div style="color:#15803d;font-weight:500;">✅ 已替换为：$1</div>')
+      .replace(/ALSO TRY: (.+)/g, '<div style="color:#6d28d9;font-size:13px;">🔮 也可以试试：$1</div>')
   }
 
   const doExportPDF = () => {
@@ -161,9 +171,17 @@ ${diaries.map(d => `<div class="entry"><h2>${formatDiaryDate(d.date)}</h2><p>${e
 
             {diffText && (
               <div className="polish-diff">
-                <label style={{ marginTop: 14 }}>修改对照</label>
-                <div style={{ fontSize: 13, lineHeight: 2, whiteSpace: 'pre-wrap' }}
+                <label style={{ marginTop: 14 }}>📝 修改对照</label>
+                <div style={{ fontSize: 14, lineHeight: 2.2, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}
                   dangerouslySetInnerHTML={{ __html: renderDiff(diffText) }} />
+              </div>
+            )}
+
+            {vocabText && (
+              <div className="polish-diff" style={{ marginTop: 4, padding: 14, background: '#faf5ff', borderRadius: 8, border: '1px solid #e9d5ff' }}>
+                <label style={{ color: '#7c3aed' }}>📚 词汇宝库 — 可替换词汇</label>
+                <div style={{ fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}
+                  dangerouslySetInnerHTML={{ __html: renderVocab(vocabText) }} />
               </div>
             )}
 

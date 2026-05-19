@@ -151,9 +151,9 @@ export async function translateAI(text, direction) {
 
 export async function polishAI(text) {
   const r = await tryServer(() => api('POST', '/api/ai/polish', { text }))
-  if (r !== null) return { result: r.result, diff: r.diff }
+  if (r !== null) return { result: r.result, diff: r.diff, vocab: r.vocab || '' }
   const result = await callDeepSeek(
-    'You are a native English editor helping a learner improve their diary writing. Correct all grammar mistakes, improve word choices to sound more natural and native-like, and polish sentence flow. Preserve the original meaning, tone, and personal voice. Output ONLY the corrected version, no explanations.',
+    'You are a native English editor helping a learner improve their diary writing. Correct all grammar mistakes, replace simple words with richer vocabulary, vary sentence openings. Preserve the original meaning and personal voice. Output ONLY the corrected version, no explanations.',
     text
   )
   return { result }
